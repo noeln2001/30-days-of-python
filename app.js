@@ -343,6 +343,13 @@ print(f"__PYMASTER_TEST_PASS__:{__test_pass}:{__test_msg}")
     // 2. Render Markdown Lesson
     renderMarkdownContent(day.markdown);
 
+    // Auto-scroll to hash anchor if present in URL
+    if (window.location.hash) {
+      setTimeout(() => {
+        scrollToHeading(window.location.hash);
+      }, 200);
+    }
+
     // 3. Update Guided Practice
     renderPracticeView(day);
 
@@ -355,21 +362,150 @@ print(f"__PYMASTER_TEST_PASS__:{__test_pass}:{__test_msg}")
     if (challengeBadge) challengeBadge.textContent = challengeCount;
   }
 
+  function generateHeadingSlugs(text) {
+    const raw = (text || '').trim();
+    // 1. Standard GitHub style
+    const ghSlug = raw.toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-');
+    
+    // 2. Pure alphanumeric clean slug
+    const cleanSlug = raw.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    // 3. Emoji/Punctuation preserved as dash patterns (e.g. -exercises---day-1)
+    const dashSlug = raw.toLowerCase()
+      .replace(/[^\w\s-]/g, '-')
+      .replace(/\s+/g, '-');
+
+    // 4. Leading dash variants (e.g. #-day-1, #-exercises---day-1, #-30-days-of-python)
+    const leadingCleanSlug = '-' + cleanSlug;
+    const leadingGhSlug = '-' + ghSlug;
+
+    return Array.from(new Set([ghSlug, cleanSlug, dashSlug, leadingCleanSlug, leadingGhSlug, raw.toLowerCase()])).filter(Boolean);
+  }
+
+  function scrollToHeading(targetSlug) {
+    if (!targetSlug) return;
+    if (state.activeMode !== 'learn') {
+      switchMode('learn');
+    }
+    const cleanTarget = decodeURIComponent(targetSlug).replace(/^#/, '').toLowerCase().trim();
+    const cleanNoSuffix = cleanTarget.replace(/-\d+$/, '');
+    const container = document.getElementById('lesson-markdown-body');
+    const scrollContainer = document.getElementById('main-content-area');
+    if (!container || !scrollContainer) return;
+
+    // 1. Direct ID match
+    let targetElem = document.getElementById(cleanTarget) || document.getElementById(cleanNoSuffix);
+
+    // 2. Match by data-slugs attribute or heading element id
+    if (!targetElem) {
+      const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      targetElem = Array.from(headings).find(h => {
+        if (h.id === cleanTarget || h.id === cleanNoSuffix) return true;
+        try {
+          const slugs = JSON.parse(h.getAttribute('data-slugs') || '[]');
+          return slugs.includes(cleanTarget) ||
+                 slugs.includes(cleanNoSuffix) ||
+                 slugs.some(s => s.replace(/^-+|-+$/g, '') === cleanTarget.replace(/^-+|-+$/g, '')) ||
+                 slugs.some(s => s.replace(/^-+|-+$/g, '') === cleanNoSuffix.replace(/^-+|-+$/g, ''));
+        } catch (e) {
+          return false;
+        }
+      });
+    }
+
+    // 3. Match by simplified alphanumeric text similarity
+    if (!targetElem) {
+      const simplifiedTarget = cleanTarget.replace(/[^a-z0-9]/g, '');
+      const simplifiedNoSuffix = cleanNoSuffix.replace(/[^a-z0-9]/g, '');
+      const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      targetElem = Array.from(headings).find(h => {
+        const simplifiedHeading = h.textContent.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return simplifiedHeading && (
+          simplifiedHeading === simplifiedTarget ||
+          simplifiedHeading === simplifiedNoSuffix ||
+          simplifiedHeading.includes(simplifiedTarget) ||
+          simplifiedHeading.includes(simplifiedNoSuffix) ||
+          simplifiedTarget.includes(simplifiedHeading)
+        );
+      });
+    }
+
+    // 4. Special fallback for exercise sections
+    if (!targetElem && cleanTarget.includes('exercise')) {
+      const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      targetElem = Array.from(headings).find(h => h.textContent.toLowerCase().includes('exercise'));
+    }
+
+    // 5. Special fallback for sponsor section
+    if (!targetElem && cleanTarget.includes('sponsor')) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (targetElem) {
+      const heading = targetElem.closest('h1, h2, h3, h4, h5, h6') || targetElem;
+      const elemRect = heading.getBoundingClientRect();
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const relativeTop = elemRect.top - containerRect.top + scrollContainer.scrollTop - 24;
+
+      scrollContainer.scrollTo({
+        top: Math.max(0, relativeTop),
+        behavior: 'smooth'
+      });
+
+      // Highlight pulse animation
+      heading.classList.remove('heading-target-pulse');
+      void heading.offsetWidth;
+      heading.classList.add('heading-target-pulse');
+    }
+  }
+
   function highlightPythonCode(code) {
-    let esc = escapeHtml(code);
-    // Comments
-    esc = esc.replace(/(#[^\n]*)/g, '<span class="token-comment">$1</span>');
-    // Strings (prevent replacing inside already created span tags)
-    esc = esc.replace(/("""[\s\S]*?"""|'''[\s\S]*?'''|f"[^"\n]*"|f'[^'\n]*'|"[^"\n]*"|'[^'\n]*')/g, '<span class="token-string">$1</span>');
-    // Keywords
-    const kwRegex = /\b(def|class|return|if|elif|else|for|while|try|except|finally|import|from|as|in|is|not|and|or|lambda|pass|break|continue|with|raise|yield|async|await|assert|global|nonlocal)\b/g;
-    esc = esc.replace(kwRegex, (m, kw) => `<span class="token-keyword">${kw}</span>`);
-    // Builtins
-    const bRegex = /\b(print|len|type|range|enumerate|zip|sum|min|max|sorted|int|float|str|list|dict|set|tuple|bool|round|abs|map|filter|input|open|isinstance)\b/g;
-    esc = esc.replace(bRegex, (m, fn) => `<span class="token-builtin">${fn}</span>`);
-    // Numbers
-    esc = esc.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="token-number">$1</span>');
-    return esc;
+    if (!code) return '';
+    const keywords = new Set([
+      'def', 'class', 'return', 'if', 'elif', 'else', 'for', 'while', 'try', 'except',
+      'finally', 'import', 'from', 'as', 'in', 'is', 'not', 'and', 'or', 'lambda',
+      'pass', 'break', 'continue', 'with', 'raise', 'yield', 'async', 'await', 'assert',
+      'global', 'nonlocal', 'True', 'False', 'None'
+    ]);
+
+    const builtins = new Set([
+      'print', 'len', 'type', 'range', 'enumerate', 'zip', 'sum', 'min', 'max',
+      'sorted', 'int', 'float', 'str', 'list', 'dict', 'set', 'tuple', 'bool',
+      'round', 'abs', 'map', 'filter', 'input', 'open', 'isinstance'
+    ]);
+
+    // Single-pass tokenizer to guarantee no regex touches already-generated HTML spans
+    const tokenRegex = /(#[^\n]*)|("""[\s\S]*?"""|'''[\s\S]*?'''|f"(?:\\.|[^"\\])*"|f'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_]\w*\b)|(\n|[^\s\w#"'`]+|\s+)/g;
+
+    let result = '';
+    let match;
+    while ((match = tokenRegex.exec(code)) !== null) {
+      const [full, comment, str, num, word] = match;
+      if (comment) {
+        result += `<span class="token-comment">${escapeHtml(comment)}</span>`;
+      } else if (str) {
+        result += `<span class="token-string">${escapeHtml(str)}</span>`;
+      } else if (num) {
+        result += `<span class="token-number">${num}</span>`;
+      } else if (word) {
+        if (keywords.has(word)) {
+          result += `<span class="token-keyword">${word}</span>`;
+        } else if (builtins.has(word)) {
+          result += `<span class="token-builtin">${word}</span>`;
+        } else {
+          result += escapeHtml(word);
+        }
+      } else {
+        result += escapeHtml(full);
+      }
+    }
+    return result || escapeHtml(code);
   }
 
   function renderMarkdownContent(rawMarkdown) {
@@ -383,7 +519,77 @@ print(f"__PYMASTER_TEST_PASS__:{__test_pass}:{__test_msg}")
       container.innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit;">${rawMarkdown}</pre>`;
     }
 
-    // Enhance all <pre><code> code blocks with Syntax Highlighting, Run & Copy buttons
+    // 1. Process all headings: assign IDs, data-slugs, and anchor spans for TOC links
+    const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    headings.forEach(h => {
+      const slugs = generateHeadingSlugs(h.textContent);
+      if (slugs.length > 0) {
+        if (!h.id) h.id = slugs[0];
+        h.setAttribute('data-slugs', JSON.stringify(slugs));
+
+        // Insert invisible anchor spans for each slug variant so document.getElementById(slug) natively finds them
+        slugs.forEach(slug => {
+          if (slug && !document.getElementById(slug)) {
+            const anchor = document.createElement('span');
+            anchor.id = slug;
+            anchor.className = 'heading-anchor-target';
+            h.appendChild(anchor);
+          }
+        });
+      }
+    });
+
+    // 2. Intercept and handle all anchor link clicks (TOC jumps, cross-day navigation, external links)
+    const links = container.querySelectorAll('a');
+    links.forEach(a => {
+      a.addEventListener('click', (e) => {
+        const href = a.getAttribute('href');
+        if (!href) return;
+
+        // Internal hash anchor navigation (e.g. #python-indentation, #-exercises---day-1)
+        if (href.startsWith('#')) {
+          e.preventDefault();
+          scrollToHeading(href);
+          history.replaceState(null, null, href);
+          return;
+        }
+
+        // Cross-day navigation (e.g. [Day 2 >>](./02_Day_.../02_...md) or [<< Day 1](../readme.md))
+        const dayMatch = href.match(/(\d{1,2})_Day/i) || href.match(/Day[_\s-]*(\d{1,2})/i) || a.textContent.match(/Day\s*(\d{1,2})/i);
+        if (dayMatch) {
+          e.preventDefault();
+          const targetDay = parseInt(dayMatch[1], 10);
+          if (targetDay >= 1 && targetDay <= 30) {
+            state.activeDay = targetDay;
+            state.activeChallengeIndex = 0;
+            renderSidebar();
+            renderDayView();
+            document.getElementById('main-content-area').scrollTop = 0;
+            history.replaceState(null, null, window.location.pathname);
+            return;
+          }
+        }
+
+        if (href.includes('readme.md') || href === './readme.md' || href === '../readme.md') {
+          e.preventDefault();
+          state.activeDay = 1;
+          state.activeChallengeIndex = 0;
+          renderSidebar();
+          renderDayView();
+          document.getElementById('main-content-area').scrollTop = 0;
+          history.replaceState(null, null, window.location.pathname);
+          return;
+        }
+
+        // External URLs open safely in new tab
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener noreferrer');
+        }
+      });
+    });
+
+    // 3. Enhance all <pre><code> code blocks with Syntax Highlighting, Run & Copy buttons
     const codeBlocks = container.querySelectorAll('pre');
     codeBlocks.forEach(pre => {
       const codeElem = pre.querySelector('code');
@@ -642,6 +848,13 @@ print(f"__PYMASTER_TEST_PASS__:{__test_pass}:{__test_msg}")
   // 11. Interactive Event Bindings
   // -------------------------------------------------------------------------
   function bindEvents() {
+    // URL Hash Change Listener (Browser back/forward and external link jumping)
+    window.addEventListener('hashchange', () => {
+      if (window.location.hash) {
+        scrollToHeading(window.location.hash);
+      }
+    });
+
     // Mode Navigation Tabs
     document.querySelectorAll('.nav-tab').forEach(tab => {
       tab.addEventListener('click', () => {
