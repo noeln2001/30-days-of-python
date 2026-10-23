@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PyMaster 30 — 30 Days of Python Interactive Studio</title>
+  <meta name="description" content="Master Python step-by-step with interactive coding challenges, live in-browser Python WebAssembly execution, automated test verification, concept quizzes, and rich curriculum lessons.">
+  <meta name="theme-color" content="#0b0f19">
+
+  <!-- OpenGraph / Social Sharing -->
+  <meta property="og:title" content="PyMaster 30 — 30 Days of Python Interactive Studio">
+  <meta property="og:description" content="Master Python with interactive exercises, in-browser code execution, live REPL, and quizzes.">
+  <meta property="og:type" content="website">
+
+  <!-- SVG Python Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐍</text></svg>">
+
+  <!-- Modern Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Marked.js for fast markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Canvas Confetti for celebratory animations -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <!-- Pyodide WebAssembly Python Runtime -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+
+  <link rel="stylesheet" href="./index.css">
+</head>
+<body class="theme-dark">
+  <!-- App Container -->
+  <div id="app" class="app-layout">
+    
+    <!-- Top Header -->
+    <header class="app-header" id="main-header">
+      <div class="header-left">
+        <button id="sidebar-toggle" class="btn-icon" aria-label="Toggle curriculum sidebar" title="Toggle curriculum sidebar (Ctrl+B)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <div class="brand" id="brand-home" title="PyMaster 30 Studio">
+          <span class="brand-icon">🐍</span>
+          <div class="brand-text">
+            <span class="brand-title">PyMaster 30</span>
+            <span class="brand-tag">30 Days of Python Studio</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="mode-nav" aria-label="Learning view modes">
+        <button class="nav-tab active" data-mode="learn" id="tab-learn">
+          <span class="tab-icon">📘</span>
+          <span class="tab-label">Learn & Read</span>
+        </button>
+        <button class="nav-tab" data-mode="practice" id="tab-practice">
+          <span class="tab-icon">💻</span>
+          <span class="tab-label">Guided Practice</span>
+          <span class="badge-count" id="active-day-challenge-badge">3</span>
+        </button>
+        <button class="nav-tab" data-mode="playground" id="tab-playground">
+          <span class="tab-icon">⚡</span>
+          <span class="tab-label">Playground & REPL</span>
+        </button>
+        <button class="nav-tab" data-mode="quiz" id="tab-quiz">
+          <span class="tab-icon">🧠</span>
+          <span class="tab-label">Daily Quiz</span>
+        </button>
+        <button class="nav-tab" data-mode="cheatsheet" id="tab-cheatsheet">
+          <span class="tab-icon">📑</span>
+          <span class="tab-label">Cheat Sheet</span>
+        </button>
+      </nav>
+
+      <!-- Header Right Utilities -->
+      <div class="header-right">
+        <!-- Progress Bar & Streak -->
+        <div class="progress-pill" id="header-progress-pill" title="Overall course completion progress">
+          <div class="streak-badge" title="Daily Learning Streak">
+            <span>🔥</span>
+            <span id="streak-count">1</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="global-progress-bar" style="width: 3%;"></div>
+          </div>
+          <span class="progress-text" id="global-progress-text">1 / 30 Days</span>
+        </div>
+
+        <!-- Python Runner Selector -->
+        <div class="runner-dropdown-wrap" title="Python Execution Engine">
+          <select id="runner-select" class="select-pill" aria-label="Select Python Runner">
+            <option value="pyodide" selected>⚡ Pyodide (WASM)</option>
+            <option value="local">🐍 Local Python 3.11</option>
+          </select>
+          <span class="runner-status-dot online" id="runner-status-dot" title="Runner ready"></span>
+        </div>
+
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="btn-icon" aria-label="Toggle Dark/Light Mode" title="Toggle Theme">
+          <span class="theme-icon-dark">🌙</span>
+          <span class="theme-icon-light">☀️</span>
+        </button>
+
+        <!-- Reset / Options Menu -->
+        <button id="options-btn" class="btn-icon" aria-label="Learning Settings & Reset" title="Settings & Progress">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="workspace-body">
+      
+      <!-- Left Sidebar: Curriculum Directory -->
+      <aside class="curriculum-sidebar" id="curriculum-sidebar">
+        <div class="sidebar-search-box">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" id="curriculum-search-input" placeholder="Search topics, syntax, regex..." aria-label="Search curriculum topics">
+          <button id="clear-search-btn" class="btn-clear-search" title="Clear search" style="display:none;">&times;</button>
+        </div>
+
+        <!-- Filter Phases -->
+        <div class="phase-filters" id="phase-filters">
+          <button class="filter-chip active" data-phase="all">All Days</button>
+          <button class="filter-chip" data-phase="Foundations">Foundations (1-7)</button>
+          <button class="filter-chip" data-phase="Control Flow & Data">Logic (8-14)</button>
+          <button class="filter-chip" data-phase="Advanced & I/O">Advanced (15-21)</button>
+          <button class="filter-chip" data-phase="Real-World & Projects">Applied (22-30)</button>
+        </div>
+
+        <!-- Curriculum Days List -->
+        <div class="curriculum-days-list" id="curriculum-days-list">
+          <!-- Dynamically populated by app.js -->
+        </div>
+
+        <!-- Sidebar Footer Status -->
+        <div class="sidebar-footer">
+          <div class="curriculum-stats">
+            <span id="sidebar-completed-count">0 / 30 Completed</span>
+            <span id="sidebar-percent">0%</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content View Area -->
+      <main class="main-content-area" id="main-content-area">
+        
+        <!-- ============================================== -->
+        <!-- VIEW 1: LEARN & READ MODE                       -->
+        <!-- ============================================== -->
+        <section class="view-panel active" id="view-learn" aria-label="Curriculum Lesson Reader">
+          <div class="lesson-header-banner" id="lesson-header-banner">
+            <div class="lesson-meta-top">
+              <span class="day-badge" id="lesson-day-badge">Day 1</span>
+              <span class="phase-badge" id="lesson-phase-badge">Foundations</span>
+              <span class="read-time-badge" id="lesson-time-badge">⏱️ 35 min</span>
+            </div>
+            <h1 class="lesson-title" id="lesson-title">Introduction to Python</h1>
+            <p class="lesson-summary" id="lesson-summary">Master Python syntax, comments, basic data types, and arithmetic calculations.</p>
+            <div class="topics-tags" id="lesson-topics-tags"></div>
+            
+            <div class="lesson-quick-actions">
+              <button class="btn btn-primary" id="btn-jump-to-practice">
+                <span>💻 Start Guided Practice</span>
+              </button>
+              <button class="btn btn-secondary" id="btn-open-day-quiz">
+                <span>🧠 Test Knowledge in Quiz</span>
+              </button>
+              <button class="btn btn-outline" id="btn-mark-day-read">
+                <span id="mark-read-check">⭕</span>
+                <span id="mark-read-text">Mark Day Complete</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Markdown Content Body -->
+          <article class="lesson-markdown-body" id="lesson-markdown-body">
+            <!-- Rendered by Marked.js with Syntax Highlighting -->
+          </article>
+
+          <!-- Day Navigation Footer -->
+          <div class="lesson-footer-nav">
+            <button class="btn btn-secondary" id="btn-prev-day">
+              <span>← Previous Day</span>
+            </button>
+            <span class="current-day-label" id="footer-day-indicator">Day 1 of 30</span>
+            <button class="btn btn-primary" id="btn-next-day">
+              <span>Next Day →</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- VIEW 2: GUIDED PRACTICE MODE                   -->
+        <!-- ============================================== -->
+        <section class="view-panel" id="view-practice" aria-label="Guided Coding Challenges">
+          <div class="practice-container">
+            
+            <!-- Left Challenge Selector & Details -->
+            <div class="practice-briefing-panel">
+              <div class="practice-header">
+                <div class="practice-day-title">
+                  <span class="practice-icon" id="practice-day-icon">🐍</span>
+                  <h2 id="practice-day-heading">Day 1 Challenges</h2>
+                </div>
+                <div class="challenge-level-tabs" id="challenge-level-tabs">
+                  <!-- Dynamically populated (Level 1, Level 2, etc.) -->
+                </div>
+              </div>
+
+              <!-- Challenge Task Description Card -->
+              <div class="challenge-card" id="challenge-card">
+                <div class="challenge-card-header">
+                  <span class="challenge-level-tag" id="challenge-level-tag">Level 1</span>
+                  <h3 id="challenge-title">Arithmetic Calculations</h3>
+                  <span class="challenge-status-badge" id="challenge-status-badge">Unsolved</span>
+                </div>
+                <div class="challenge-description" id="challenge-description">
+                  <!-- Task requirements text -->
+                </div>
+
+                <!-- Action Utilities -->
+                <div class="challenge-card-actions">
+                  <button class="btn-sm btn-ghost" id="btn-reset-starter-code" title="Reset editor to challenge starter code">
+                    <span>↺ Reset Code</span>
+                  </button>
+                  <button class="btn-sm btn-ghost" id="btn-toggle-hint" title="Reveal helpful hint">
+                    <span>💡 Hint</span>
+                  </button>
+                  <button class="btn-sm btn-ghost" id="btn-toggle-solution" title="Inspect model reference solution">
+                    <span>👁️ Reference Solution</span>
+                  </button>
+                </div>
+
+                <!-- Collapsible Hint Card -->
+                <div class="collapsible-drawer" id="hint-drawer" style="display: none;">
+                  <div class="drawer-header">💡 Helpful Hint</div>
+                  <div class="drawer-body" id="hint-body"></div>
+                </div>
+
+                <!-- Collapsible Reference Solution Card -->
+                <div class="collapsible-drawer" id="solution-drawer" style="display: none;">
+                  <div class="drawer-header">
+                    <span>👁️ Model Reference Solution</span>
+                    <button class="btn-copy-code" id="btn-copy-solution" title="Copy solution">Copy</button>
+                  </div>
+                  <pre class="drawer-code" id="solution-code"></pre>
+                </div>
+
+                <!-- Test Results Card -->
+                <div class="test-results-card" id="test-results-card">
+                  <div class="test-results-header">
+                    <span class="test-header-title">🧪 Test Verification Results</span>
+                    <span class="test-status-pill" id="test-summary-pill">Waiting for run</span>
+                  </div>
+                  <div class="test-results-body" id="test-results-body">
+                    <p class="test-placeholder">Click <strong>"Verify & Run Tests"</strong> to test your solution against automated test assertions.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Interactive Code Editor & Terminal -->
+            <div class="practice-editor-panel">
+              <div class="editor-toolbar">
+                <div class="editor-file-info">
+                  <span class="file-icon">🐍</span>
+                  <span class="file-name" id="practice-filename">solution.py</span>
+                  <span class="autosave-tag" id="autosave-tag">Saved</span>
+                </div>
+                <div class="editor-actions">
+                  <button class="btn-sm btn-outline" id="btn-clear-console">Clear Console</button>
+                  <button class="btn btn-secondary" id="btn-run-code" title="Execute script (Ctrl+Enter)">
+                    <span>▶ Run Code</span>
+                  </button>
+                  <button class="btn btn-primary" id="btn-verify-tests" title="Run Automated Tests (Ctrl+Shift+Enter)">
+                    <span>🧪 Verify & Run Tests</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Code Editor Wrapper -->
+              <div class="code-editor-wrapper">
+                <div class="editor-line-numbers" id="editor-line-numbers">1</div>
+                <textarea id="code-editor" class="code-textarea" spellcheck="false" placeholder="# Write your Python code here..."></textarea>
+              </div>
+
+              <!-- Terminal Console Output -->
+              <div class="terminal-panel">
+                <div class="terminal-header">
+                  <div class="terminal-title">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                    <span>Output Terminal</span>
+                  </div>
+                  <div class="terminal-meta">
+                    <span class="exec-time" id="exec-time-badge">0ms</span>
+                    <span class="engine-badge" id="active-engine-badge">Pyodide WASM</span>
+                  </div>
+                </div>
+                <div class="terminal-body" id="terminal-output">
+                  <div class="terminal-line info">🐍 PyMaster Python runtime ready. Press 'Run Code' or Ctrl+Enter.</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- VIEW 3: PLAYGROUND & REPL MODE                 -->
+        <!-- ============================================== -->
+        <section class="view-panel" id="view-playground" aria-label="Interactive Python Playground & REPL">
+          <div class="playground-layout">
+            <div class="playground-header">
+              <div class="playground-modes">
+                <button class="pg-mode-btn active" data-pgmode="script" id="pg-mode-script">📄 Script Playground</button>
+                <button class="pg-mode-btn" data-pgmode="repl" id="pg-mode-repl">💬 Interactive REPL (>>>)</button>
+              </div>
+              <div class="playground-presets">
+                <label for="template-select" class="sr-only">Code Templates</label>
+                <select id="template-select" class="select-pill">
+                  <option value="">⚡ Load Code Template...</option>
+                  <option value="scratchpad">Blank Scratchpad</option>
+                  <option value="comprehension">List & Dict Comprehensions</option>
+                  <option value="stats_class">Custom Statistics Class (OOP)</option>
+                  <option value="regex_cleaner">Regular Expressions & Text Parser</option>
+                  <option value="math_algorithms">Prime Sieve & Fibonacci Generator</option>
+                  <option value="data_filter">Mock Data Analysis & Filtering</option>
+                </select>
+                <button class="btn btn-secondary" id="btn-pg-run">
+                  <span>▶ Run Script (Ctrl+Enter)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Playground Content -->
+            <div class="playground-workspace">
+              <!-- Script Mode View -->
+              <div class="pg-view active" id="pg-view-script">
+                <div class="pg-editor-split">
+                  <div class="pg-editor-wrap">
+                    <div class="editor-line-numbers" id="pg-line-numbers">1</div>
+                    <textarea id="pg-code-editor" class="code-textarea" spellcheck="false" placeholder="# Type any Python code here to experiment and run..."></textarea>
+                  </div>
+                  <div class="pg-console-wrap">
+                    <div class="terminal-header">
+                      <span>Script Console Output</span>
+                      <button class="btn-sm btn-ghost" id="btn-clear-pg-console">Clear</button>
+                    </div>
+                    <div class="terminal-body" id="pg-terminal-output">
+                      <div class="terminal-line info">🐍 Ready for experiments. Type code and click 'Run Script'.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Interactive REPL Mode View -->
+              <div class="pg-view" id="pg-view-repl">
+                <div class="repl-container" id="repl-container">
+                  <div class="repl-history" id="repl-history">
+                    <div class="repl-welcome">
+                      Python 3.11 (Interactive Web REPL) - PyMaster 30<br>
+                      Type Python expressions (e.g. <code>2 + 2</code>, <code>[x**2 for x in range(5)]</code>, <code>sum([10, 20])</code>) and press Enter.
+                    </div>
+                  </div>
+                  <div class="repl-input-row">
+                    <span class="repl-prompt">&gt;&gt;&gt;</span>
+                    <input type="text" id="repl-input" class="repl-input-field" placeholder="Enter Python expression..." autocomplete="off" spellcheck="false">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- VIEW 4: DAILY QUIZ MODE                        -->
+        <!-- ============================================== -->
+        <section class="view-panel" id="view-quiz" aria-label="Daily Concept Quiz">
+          <div class="quiz-container">
+            <div class="quiz-hero">
+              <span class="quiz-icon">🧠</span>
+              <div class="quiz-hero-text">
+                <h2 id="quiz-day-title">Day 1 Knowledge Check</h2>
+                <p id="quiz-day-desc">Test your understanding of syntax, core concepts, and edge cases with instant feedback.</p>
+              </div>
+              <div class="quiz-score-badge" id="quiz-score-badge">
+                <span class="score-num" id="quiz-score-val">0</span>
+                <span class="score-label">/ 3 Correct</span>
+              </div>
+            </div>
+
+            <div class="quiz-questions-list" id="quiz-questions-list">
+              <!-- Dynamically populated question cards -->
+            </div>
+
+            <div class="quiz-footer-actions">
+              <button class="btn btn-secondary" id="btn-retake-quiz">↺ Retake Quiz</button>
+              <button class="btn btn-primary" id="btn-quiz-next-day">Next Day Quiz →</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- VIEW 5: CHEAT SHEET MODE                       -->
+        <!-- ============================================== -->
+        <section class="view-panel" id="view-cheatsheet" aria-label="Searchable Python Cheat Sheet">
+          <div class="cheatsheet-container">
+            <div class="cheatsheet-hero">
+              <h2>Python Essential Reference & Cheat Sheet</h2>
+              <p>Quick lookup for built-in functions, string manipulation, collections, comprehensions, regex patterns, and error handling.</p>
+              
+              <div class="cheatsheet-search-bar">
+                <input type="text" id="cheatsheet-search-input" placeholder="Search reference methods (e.g. split, len, lambda, regex)...">
+              </div>
+
+              <div class="cheatsheet-category-chips" id="cheatsheet-category-chips">
+                <button class="filter-chip active" data-cat="all">All Categories</button>
+                <button class="filter-chip" data-cat="Built-in Functions">Built-in Functions</button>
+                <button class="filter-chip" data-cat="Strings & Methods">Strings</button>
+                <button class="filter-chip" data-cat="Lists & Arrays">Lists</button>
+                <button class="filter-chip" data-cat="Dictionaries">Dictionaries</button>
+                <button class="filter-chip" data-cat="Sets & Math Sets">Sets</button>
+                <button class="filter-chip" data-cat="Comprehensions">Comprehensions</button>
+                <button class="filter-chip" data-cat="Error Handling & Debugging">Error Handling</button>
+                <button class="filter-chip" data-cat="Regular Expressions (re)">Regex</button>
+              </div>
+            </div>
+
+            <div class="cheatsheet-grid" id="cheatsheet-grid">
+              <!-- Dynamically populated from cheat_sheet_data.js -->
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+    </div>
+
+    <!-- Celebration Canvas for Confetti -->
+    <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
+
+    <!-- Settings / Progress Modal -->
+    <div class="modal-backdrop" id="options-modal" style="display: none;">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>Settings & Progress Management</h3>
+          <button class="btn-close-modal" id="btn-close-options">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <div class="setting-text">
+              <strong>Local Progress Sync</strong>
+              <p>Your solved challenges, quiz scores, and streak are automatically stored in browser storage and synchronized with local server.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btn-export-progress">Export Progress JSON</button>
+          </div>
+          <div class="setting-item">
+            <div class="setting-text">
+              <strong>Reset All Progress</strong>
+              <p class="text-danger">Clears all completed checkmarks, solved challenges, and saved editor code.</p>
+            </div>
+            <button class="btn btn-danger btn-sm" id="btn-reset-progress">Reset Progress</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Curriculum & Cheat Sheet Data Scripts -->
+  <script src="./curriculum_data.js"></script>
+  <script src="./cheat_sheet_data.js"></script>
+  <!-- Main Application Logic -->
+  <script src="./app.js"></script>
+</body>
+</html>
